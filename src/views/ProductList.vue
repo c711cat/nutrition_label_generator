@@ -119,8 +119,8 @@
             <tr>
               <th class="fw-normal ps-2 lh-sm">每一份量</th>
               <td colspan="2" class="lh-sm">
-                {{ item.netWeightInformation.netWeight }}
-                {{ item.netWeightInformation.unit }}
+                {{ item.perPortionInfomation.perWeight }}
+                {{ item.perPortionInfomation.unit }}
               </td>
             </tr>
             <tr class="lh-1">
@@ -135,7 +135,7 @@
               <th class="border-bottom border-black"></th>
               <td class="text-end pe-2 border-bottom border-black">每份</td>
               <td class="text-end pe-2 border-bottom border-black">
-                每 100 {{ item.netWeightInformation.unit }}
+                每 100 {{ item.perPortionInfomation.unit }}
               </td>
             </tr>
             <tr class="lh-1">
@@ -208,25 +208,56 @@
                 {{ calculatePer100g(item, 'sodium') }} 毫克
               </td>
             </tr>
-            <tr
-              v-for="nutrient in item.addNutrients"
-              :key="nutrient"
-              class="lh-1"
-            >
-              <th class="fw-normal ps-2">
+            <tr v-for="nutrient in item.claimNts" :key="nutrient" class="lh-1">
+              <th v-if="nutrient !== 'alcohol'" class="fw-normal ps-2">
                 {{ headerChineseAndEnglish[nutrient].replace(/\(.*\)/, '') }}
               </th>
-              <td class="text-end pe-2">
+              <td v-if="nutrient !== 'alcohol'" class="text-end pe-2">
                 {{ calculateNutrients(item, nutrient) }}
                 {{ transUnitText(headerChineseAndEnglish[nutrient]) }}
               </td>
-              <td class="text-end pe-2">
+              <td v-if="nutrient !== 'alcohol'" class="text-end pe-2">
                 {{ calculatePer100g(item, nutrient) }}
                 {{ transUnitText(headerChineseAndEnglish[nutrient]) }}
               </td>
             </tr>
+            <tr
+              v-for="nutrient in item.newClaimNts"
+              :key="nutrient"
+              class="lh-1"
+            >
+              <th v-if="!organicAcid.includes(nutrient)" class="fw-normal ps-2">
+                {{ myAddedNts[nutrient].replace(/\(.*\)/, '') }}
+              </th>
+              <td v-if="!organicAcid.includes(nutrient)" class="text-end pe-2">
+                {{ calculateNutrients(item, nutrient) }}
+                {{ transUnitText(myAddedNts[nutrient]) }}
+              </td>
+              <td v-if="!organicAcid.includes(nutrient)" class="text-end pe-2">
+                {{ calculatePer100g(item, nutrient) }}
+                {{ transUnitText(myAddedNts[nutrient]) }}
+              </td>
+            </tr>
           </tbody>
         </table>
+        <section class="pt-1">
+          <div v-for="nutrient in item.claimNts" :key="nutrient" class="ps-2">
+            <p v-if="nutrient === 'alcohol'" class="mb-0">
+              每份含 酒精 {{ calculateNutrients(item, nutrient) }} 公克
+            </p>
+          </div>
+          <div
+            v-for="nutrient in item.newClaimNts"
+            :key="nutrient"
+            class="mb-0 ps-2"
+          >
+            <p v-if="organicAcid.includes(nutrient)" class="mb-0">
+              每份含 {{ myAddedNts[nutrient].replace(/\(.*\)/, '') }}
+              {{ calculateNutrients(item, nutrient) }}
+              {{ transUnitText(myAddedNts[nutrient]) }}
+            </p>
+          </div>
+        </section>
       </section>
       <div class="d-flex flex-wrap justify-content-between pe-4">
         <button
@@ -234,7 +265,7 @@
           type="button"
           class="btn btn-primary my-3"
         >
-          新增其他營養素
+          增減營養素
         </button>
         <div class="my-3">
           <button
@@ -261,8 +292,35 @@
           </button>
         </div>
       </div>
+      <div>
+        <p>
+          依據
+          <a
+            href="https://www.foodlabel.org.tw/FdaFrontEndApp/Law/Edit?SystemId=f27b8c5e-35c2-4a86-9b8b-d7cbbef409ab&clPublishStatus=undefined"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            包裝食品營養標示應遵行事項
+          </a>
+          第一章 之 第十一條：包裝食品營養標示之熱量計算方式，應依下列規定辦理：
+        </p>
+        <p>(一) 蛋白質之熱量，以每公克四大卡計算。</p>
+        <p>(二) 脂肪之熱量，以每公克九大卡計算。</p>
+        <p>
+          (三)
+          碳水化合物之熱量，以每公克四大卡計算，但加以標示膳食纖維者，其膳食纖維熱量得以每公克二大卡計算。
+        </p>
+        <p>
+          (四)
+          赤藻糖醇之熱量得以零大卡計算，其他糖醇之熱量得以每公克二‧四大卡計算；有機酸之熱量得以每公克三大卡計算；酒精(乙醇)之熱量得以每公克七大卡計算。並應將糖醇含量標示於營養標示格式中，有機酸及酒精(乙醇)含量應於營養標示格式外明顯處註明。
+        </p>
+        <p>
+          (五)
+          每份熱量計算方式，得以每一百公克(或毫升)之熱量換算之，或以每一百公克(或毫升)之蛋白質、脂肪及碳水化合物含量換算為每份含量後，再以第一款至前款計算方式計算每份之熱量。
+        </p>
+      </div>
     </div>
-    <AddNutrientsModal ref="addNutrientsModal" />
+    <ProductClaimNtsModal ref="productClaimNtsModal" />
     <DoubleCheckModal ref="doubleCheckModal" />
   </div>
 </template>
@@ -270,20 +328,33 @@
 <script>
 import { useFoodStore } from '@/stores/foodDataStore.js'
 import { mapState, mapActions } from 'pinia'
-import AddNutrientsModal from '@/components/AddNutrientsModal.vue'
+import ProductClaimNtsModal from '@/components/ProductClaimNtsModal.vue'
 import DoubleCheckModal from '@/components/DoubleCheckModal.vue'
 import html2canvas from 'html2canvas'
 import { useMsgStore } from '@/stores/messageStore'
+import { useCustomizeStore } from '@/stores/customizeStore'
 export default {
   data() {
     return {
-      addNutrients: [],
+      claimNts: [],
       productList: [],
+      myAddedNts: [],
+      newFiber: [],
+      sugarAlcohols: [
+        // 內建資料庫已存在的糖醇名稱
+        'Xylitol', // 木糖醇
+        'Sorbitol', // 山梨醇
+        'Maltitol', // 麥芽糖醇
+        'Lactitol', // 乳糖醇
+        'Mannitol', // 甘露醇
+      ],
+      organicAcid: [],
     }
   },
-  components: { AddNutrientsModal, DoubleCheckModal },
+  components: { ProductClaimNtsModal, DoubleCheckModal },
   computed: {
     ...mapState(useFoodStore, ['myProductList', 'headerChineseAndEnglish']),
+    ...mapState(useCustomizeStore, ['myAddedNtsList']),
   },
   methods: {
     ...mapActions(useFoodStore, ['setMyProducts', 'edit']),
@@ -292,7 +363,7 @@ export default {
       return (this.$route.path = `/edit_nutrition_label/${id}`)
     },
     openModal(item) {
-      this.$refs.addNutrientsModal.showModal(item)
+      this.$refs.productClaimNtsModal.showModal(item)
     },
     sorted(ingredients) {
       return ingredients
@@ -301,39 +372,148 @@ export default {
         .join('、')
     },
     calculateNutrients(item, nutrient) {
-      const data = item.ingredients.reduce((total, ingredient) => {
-        const gramsRatio = ingredient.grams / 100
-        const nutrientValue = ingredient.details[`${nutrient}`] || 0
-        return total + nutrientValue * gramsRatio
-      }, 0)
-      return (data / item.numberOfCopy).toFixed(1)
+      // 利用『每 100 公克』的數值換算『每份的數值』
+      const data = parseFloat(this.calculatePer100g(item, nutrient))
+      const perWeight = item.perPortionInfomation.perWeight
+      const perData = (data / 100) * perWeight
+      if (perData === 0) {
+        return perData.toFixed(0)
+      } else {
+        return perData.toFixed(1)
+      }
     },
     calculateCalories(item) {
-      const protein = parseFloat(this.calculateNutrients(item, 'protein'))
-      const fat = parseFloat(this.calculateNutrients(item, 'fat'))
-      const carbohydrates = parseFloat(
-        this.calculateNutrients(item, 'total_carbohydrates'),
-      )
-      return (protein * 4 + fat * 9 + carbohydrates * 4).toFixed(1)
+      let data = parseFloat(this.calculatePer100gCalories(item))
+      data = (data / 100) * item.perPortionInfomation.perWeight
+      if (data === 0) {
+        return data.toFixed(0)
+      } else {
+        return data.toFixed(1)
+      }
     },
     calculatePer100g(item, nutrient) {
-      const data = item.ingredients.reduce((total, ingredient) => {
-        const gramsRatio = ingredient.grams / 100
-        const nutrientValue = ingredient.details[`${nutrient}`] || 0
-        return total + nutrientValue * gramsRatio
-      }, 0)
-      return (
-        (data / (item.netWeightInformation.netWeight * item.numberOfCopy)) *
-        100
-      ).toFixed(1)
+      // 若 Copy = 1 ， 並且 Qty > Copy：可製成 1 份，並且『本包裝含的份數』大於『可製成的份數』時
+      // 例如：輸入的材料總重量可製成 1 包鹽，本包裝含 1000 份，每一份量為 1 克（ perWeight : 1 )
+      if (item.numberOfCopy === 1 && item.productQty > item.numberOfCopy) {
+        const data = item.ingredients.reduce((total, ingredient) => {
+          const gramsRatio = ingredient.grams / 100
+          const nutrientValue = ingredient.details[`${nutrient}`] || 0
+          const sumValue = total + nutrientValue * gramsRatio
+          return sumValue
+        }, 0)
+        const totalWeight =
+          item.productQty * item.perPortionInfomation.perWeight
+        const per100g = (data / totalWeight) * 100
+        if (per100g === 0) {
+          return per100g.toFixed(0)
+        } else {
+          return per100g.toFixed(1)
+        }
+      } else {
+        // 除了以上之外的情況
+        // 例如：南瓜豬肉粥，總材料重量可製成 10 份（ Copy:10 )，本包裝含 1 份 ( Qty:1 )，每一份量為 250 克（ perWeight : 250 )
+        const data = item.ingredients.reduce((total, ingredient) => {
+          const gramsRatio = ingredient.grams / 100
+          const nutrientValue = ingredient.details[`${nutrient}`] || 0
+          const sumValue = total + nutrientValue * gramsRatio
+          return sumValue
+        }, 0)
+        const totalWt = item.numberOfCopy * item.perPortionInfomation.perWeight
+        const per100g = (data / totalWt) * 100
+        if (per100g === 0) {
+          return per100g.toFixed(0)
+        } else {
+          return per100g.toFixed(1)
+        }
+      }
     },
     calculatePer100gCalories(item) {
-      const protein = parseFloat(this.calculatePer100g(item, 'protein'))
-      const fat = parseFloat(this.calculatePer100g(item, 'fat'))
-      const carbohydrates = parseFloat(
-        this.calculatePer100g(item, 'total_carbohydrates'),
-      )
-      return (protein * 4 + fat * 9 + carbohydrates * 4).toFixed(1)
+      const protein = parseFloat(this.calculatePer100g(item, 'protein')) || 0
+      const fat = parseFloat(this.calculatePer100g(item, 'fat')) || 0
+      let carbohydrates =
+        parseFloat(this.calculatePer100g(item, 'total_carbohydrates')) || 0
+      const fiber = item.claimNts?.includes('dietary_fiber')
+        ? parseFloat(this.calculatePer100g(item, 'dietary_fiber')) || 0
+        : 0
+      // erythritol 赤藻糖醇 熱量為零
+      const erythritol = item.claimNts?.includes('Erythritol')
+        ? parseFloat(this.calculatePer100g(item, 'Erythritol')) || 0
+        : 0
+      // 將自行新增的膳食纖維名稱加入到 this.newFiber 陣列中
+      item.ingredients.forEach(product => {
+        product.details.newClaimNts?.forEach(newClaimItem => {
+          if (
+            newClaimItem.type === '膳食纖維' &&
+            !this.newFiber.includes(newClaimItem.enName)
+          ) {
+            this.newFiber.push(newClaimItem.enName)
+          }
+        })
+      })
+      // 加總自行新增的膳食纖維克數
+      const newFiberGrams = this.newFiber.reduce((total, fiber) => {
+        if (item.newClaimNts?.includes(fiber)) {
+          const grams = parseFloat(this.calculatePer100g(item, fiber)) || 0
+          return total + grams
+        }
+        return total
+      }, 0)
+      //將 item.ingredients 中的自行新增的糖醇元素加入到內建資料庫 this.sugarAlcohols 陣列中
+      item.ingredients.forEach(product => {
+        product.details.newClaimNts?.forEach(newClaimItem => {
+          if (
+            newClaimItem.type === '糖醇' &&
+            !this.sugarAlcohols.includes(newClaimItem.enName)
+          ) {
+            this.sugarAlcohols.push(newClaimItem.enName)
+          }
+        })
+      })
+      // 其他糖醇 熱量每公克 2.4 大卡
+      const SAGrams = this.sugarAlcohols.reduce((total, SA) => {
+        if (item.claimNts?.includes(SA) || item.newClaimNts?.includes(SA)) {
+          const grams = parseFloat(this.calculatePer100g(item, SA)) || 0
+          return total + grams
+        }
+        return total
+      }, 0)
+
+      // 加總自行新增的 有機酸 克數，若將 有機酸 有標示出來，每公克以熱量 3 大卡 計算，不標則不用算
+      const organicAcidGrams = this.organicAcid.reduce((total, acid) => {
+        if (item.newClaimNts?.includes(acid)) {
+          const grams = parseFloat(this.calculatePer100g(item, acid)) || 0
+          return total + grams
+        }
+        return total
+      }, 0)
+
+      // 酒精 熱量 每公克 7 大卡
+      const alcohol = item.claimNts?.includes('alcohol')
+        ? parseFloat(this.calculatePer100g(item, 'alcihol')) || 0
+        : 0
+
+      // 碳水化合物包含：膳食纖維、赤藻糖醇、其它糖醇，『若要標示出來』，則熱量計算為：
+      // （ 碳水化合物 - 膳食纖維 - 赤藻糖醇 - 其它糖醇 ） * 4 大卡
+      // ＋ 膳食纖維 ＊ 2 大卡 + 赤藻糖醇 * 0 大卡 + 其它糖醇 * 2.4 大卡
+      // 『不標示出來』，計算方式則為：碳水化合物 * 4 大卡
+      carbohydrates =
+        carbohydrates - fiber - newFiberGrams - erythritol - SAGrams
+      const kcal =
+        protein * 4 +
+        fat * 9 +
+        carbohydrates * 4 +
+        fiber * 2 +
+        newFiberGrams * 2 +
+        erythritol * 0 +
+        SAGrams * 2.4 +
+        organicAcidGrams * 3 +
+        alcohol * 7
+
+      if (kcal === 0) {
+        return kcal.toFixed(0)
+      } else {
+        return kcal.toFixed(1)
+      }
     },
     transUnitText(unit) {
       const unitMapping = {
@@ -352,13 +532,37 @@ export default {
     openDoubleCheckModal(item, index) {
       this.$refs.doubleCheckModal.showDelModal(item, index)
     },
-
-    sortItems() {
+    adjustData() {
       this.productList = this.myProductList
+      // 將 productList.ingredients.details.baseClaimNts 展開並存入 productList.ingredients.details
+      // 並在處理後刪除 baseClaimNts
+      this.productList.forEach(product => {
+        product.ingredients.forEach(item => {
+          if (item.details.baseClaimNts) {
+            item.details = { ...item.details, ...item.details.baseClaimNts }
+          }
+          let newClaimData = {}
+          item.details.newClaimNts?.forEach(newClaimItem => {
+            newClaimData[newClaimItem.enName] = newClaimItem.quantity
+          })
+          item.details = { ...item.details, ...newClaimData }
+        })
+      })
+      this.sortItems()
+    },
+    sortItems() {
       this.productList.sort((a, b) => {
         return b.id - a.id
       })
       window.scrollTo(0, 0)
+    },
+    getMyAddedNts() {
+      const data = {}
+      this.myAddedNtsList.forEach(item => {
+        data[item.enName] =
+          item.chName + '(' + item.unit.match(/\((.*?)\)/)[1] + ')'
+      })
+      this.myAddedNts = data
     },
     transAllergenText(data) {
       const text = []
@@ -402,9 +606,21 @@ export default {
           this.pushMsg(data)
         })
     },
+    getOrganicAcidName() {
+      // 將自行新增的 有機酸 名稱加入到 this.organicAcid 陣列中
+      const OAName = []
+      this.myAddedNtsList.forEach(item => {
+        if (item.type === '有機酸') {
+          OAName.push(item.enName)
+        }
+      })
+      this.organicAcid = OAName
+    },
   },
   created() {
-    this.sortItems()
+    this.adjustData()
+    this.getMyAddedNts()
+    this.getOrganicAcidName()
   },
 }
 </script>

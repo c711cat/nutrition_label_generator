@@ -1,1 +1,0 @@
-import{p as t}from"./index-B2AOrsMC.js";const a=t("msgStore",{state:()=>({message:[],alert:!1}),getters:{MessageData:({message:e})=>e,alertStatus:({alert:e})=>e},actions:{pushMsg(e){this.message.push(e)},openAlert(e){this.alert=e,setTimeout(()=>{this.alert=!1},6e3)},closeAlert(){this.alert=!1}}});export{a as u};
